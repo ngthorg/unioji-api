@@ -1,0 +1,67 @@
+# GraphQL schema example
+#
+# https://gqlgen.com/getting-started/
+
+interface Node {
+  id: ID!
+}
+
+type Todo implements Node {
+  id: ID!
+  text: String!
+  completed: Boolean!
+}
+
+type TodoEdge {
+  node: Todo!
+  cursor: String!
+}
+
+type PageInfo {
+  hasNextPage: Boolean!
+  hasPreviousPage: Boolean!
+  startCursor: String
+  endCursor: String
+}
+
+type TodoConnection {
+  pageInfo: PageInfo!
+  edges: [TodoEdge]
+  nodes: [Todo]
+  totalCount: Int!
+}
+
+enum TodoOrderBy {
+  createdAt_ASC
+  createdAt_DESC
+  updatedAt_ASC
+  updatedAt_DESC
+}
+
+type Viewer {
+  id: String!
+  todos(
+    after: String
+    before: String
+    first: Int
+    last: Int
+    orderBy: TodoOrderBy
+  ): TodoConnection!
+}
+
+type Query {
+  viewer: Viewer!
+  node(id: ID!): Node
+  search(text: String!): [SearchResult!]!
+}
+
+input NewTodo {
+  text: String!
+  completed: String!
+}
+
+type Mutation {
+  createTodo(input: NewTodo!): Todo!
+}
+
+union SearchResult = Todo

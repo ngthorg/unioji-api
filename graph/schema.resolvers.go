@@ -12,7 +12,12 @@ import (
 )
 
 func (r *mutationResolver) CreateTodo(ctx context.Context, input model.NewTodo) (*model.Todo, error) {
-	panic(fmt.Errorf("not implemented"))
+	todo := &model.Todo{
+		ID:        "23423",
+		Text:      input.Text,
+		Completed: input.Completed,
+	}
+	return todo, nil
 }
 
 func (r *queryResolver) Viewer(ctx context.Context) (*model.Viewer, error) {

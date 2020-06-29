@@ -18,7 +18,7 @@ type SearchResult interface {
 
 type NewTodo struct {
 	Text      string `json:"text"`
-	Completed string `json:"completed"`
+	Completed bool   `json:"completed"`
 }
 
 type PageInfo struct {

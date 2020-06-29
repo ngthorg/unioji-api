@@ -57,7 +57,7 @@ type Query {
 
 input NewTodo {
   text: String!
-  completed: String!
+  completed: Boolean!
 }
 
 type Mutation {

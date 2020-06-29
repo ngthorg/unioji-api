@@ -385,7 +385,7 @@ type Query {
 
 input NewTodo {
   text: String!
-  completed: String!
+  completed: Boolean!
 }
 
 type Mutation {
@@ -2336,7 +2336,7 @@ func (ec *executionContext) unmarshalInputNewTodo(ctx context.Context, obj inter
 			}
 		case "completed":
 			var err error
-			it.Completed, err = ec.unmarshalNString2string(ctx, v)
+			it.Completed, err = ec.unmarshalNBoolean2bool(ctx, v)
 			if err != nil {
 				return it, err
 			}

@@ -1,8 +1,6 @@
 package postgres
 
 import (
-	"fmt"
-
 	"github.com/go-pg/pg/v9"
 	"github.com/unioji/unioji-api/graph/model"
 )
@@ -13,21 +11,26 @@ type TodoRepo struct {
 }
 
 // GetTodoByID is a method in TodoRepo
-func (r *TodoRepo) GetTodoByID(id string) (*model.Todo, error) {
-	var todo model.Todo
-	// err := r.DB.Model(&todo).
-	// 	Relation("User").
-	// 	Where("todo.id = ?", id).
-	// 	First()
-	todo = model.Todo{ID: id}
+func (m *TodoRepo) GetTodoByID(id string) (*model.Todo, error) {
+	todo := &model.Todo{ID: id}
 
-	err := r.DB.Select(todo)
-
-	fmt.Println(todo)
+	err := m.DB.Select(todo)
 
 	if err != nil {
 		return nil, err
 	}
 
-	return &todo, nil
+	return todo, nil
+}
+
+// GetTodos is a method in TodoRepo
+func (m *TodoRepo) GetTodos() ([]model.Todo, error) {
+	var todos []model.Todo
+	err := m.DB.Model(&todos).Select()
+
+	if err != nil {
+		return nil, err
+	}
+
+	return todos, nil
 }

@@ -20,15 +20,26 @@ func (r *mutationResolver) CreateTodo(ctx context.Context, input model.NewTodo) 
 	return todo, nil
 }
 
-func (r *queryResolver) Viewer(ctx context.Context) (*model.Viewer, error) {
+func (r *queryResolver) Viewer(ctx context.Context) (*model.User, error) {
 	panic(fmt.Errorf("not implemented"))
 }
 
 func (r *queryResolver) Node(ctx context.Context, id string) (model.Node, error) {
-	panic(fmt.Errorf("not implemented"))
+	fmt.Println("ctx", ctx)
+	todo, err := r.TodoRepo.GetTodoByID(id)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return *todo, nil
 }
 
 func (r *queryResolver) Search(ctx context.Context, text string) ([]model.SearchResult, error) {
+	panic(fmt.Errorf("not implemented"))
+}
+
+func (r *queryResolver) Todos(ctx context.Context, after *string, before *string, first *int, last *int, orderBy *model.TodoOrderBy) (*model.TodoConnection, error) {
 	panic(fmt.Errorf("not implemented"))
 }
 

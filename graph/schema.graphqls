@@ -38,8 +38,11 @@ enum TodoOrderBy {
   updatedAt_DESC
 }
 
-type Viewer {
+type User {
   id: String!
+  name: String!
+  username: String!
+  email: String!
   todos(
     after: String
     before: String
@@ -50,9 +53,16 @@ type Viewer {
 }
 
 type Query {
-  viewer: Viewer!
+  viewer: User!
   node(id: ID!): Node
   search(text: String!): [SearchResult!]!
+  todos(
+    after: String
+    before: String
+    first: Int
+    last: Int
+    orderBy: TodoOrderBy
+  ): TodoConnection!
 }
 
 input NewTodo {

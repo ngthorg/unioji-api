@@ -49,9 +49,12 @@ type TodoEdge struct {
 	Cursor string `json:"cursor"`
 }
 
-type Viewer struct {
-	ID    string          `json:"id"`
-	Todos *TodoConnection `json:"todos"`
+type User struct {
+	ID       string          `json:"id"`
+	Name     string          `json:"name"`
+	Username string          `json:"username"`
+	Email    string          `json:"email"`
+	Todos    *TodoConnection `json:"todos"`
 }
 
 type TodoOrderBy string

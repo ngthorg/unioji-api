@@ -2,14 +2,26 @@
 #
 # https://gqlgen.com/getting-started/
 
+directive @goModel(
+  model: String
+  models: [String!]
+) on OBJECT | INPUT_OBJECT | SCALAR | ENUM | INTERFACE | UNION
+
+directive @goField(
+  forceResolver: Boolean
+  name: String
+) on INPUT_FIELD_DEFINITION | FIELD_DEFINITION
+
 interface Node {
   id: ID!
 }
 
-type Todo implements Node {
+type Todo implements Node
+  @goModel(model: "github.com/unioji/unioji-api/graph/model.Todo") {
   id: ID!
   text: String!
   completed: Boolean!
+  user: User!
 }
 
 type TodoEdge {
@@ -38,9 +50,15 @@ enum TodoOrderBy {
   updatedAt_DESC
 }
 
-type Viewer {
-  id: String!
-  todos(
+type User implements Node
+  @goModel(model: "github.com/unioji/unioji-api/graph/model.User") {
+  id: ID!
+  name: String!
+  username: String!
+  email: String!
+  friends: [User!]!
+  todos: [Todo!]!
+  todosConnection(
     after: String
     before: String
     first: Int
@@ -50,14 +68,24 @@ type Viewer {
 }
 
 type Query {
-  viewer: Viewer!
+  viewer: User!
   node(id: ID!): Node
   search(text: String!): [SearchResult!]!
+  users: [User!]!
+  todos: [Todo!]!
+  todosConnection(
+    after: String
+    before: String
+    first: Int
+    last: Int
+    orderBy: TodoOrderBy
+  ): TodoConnection!
 }
 
-input NewTodo {
+input NewTodo
+  @goModel(model: "github.com/unioji/unioji-api/graph/model.NewTodo") {
   text: String!
-  completed: String!
+  completed: Boolean!
 }
 
 type Mutation {

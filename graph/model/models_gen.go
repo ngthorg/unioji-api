@@ -16,26 +16,12 @@ type SearchResult interface {
 	IsSearchResult()
 }
 
-type NewTodo struct {
-	Text      string `json:"text"`
-	Completed string `json:"completed"`
-}
-
 type PageInfo struct {
 	HasNextPage     bool    `json:"hasNextPage"`
 	HasPreviousPage bool    `json:"hasPreviousPage"`
 	StartCursor     *string `json:"startCursor"`
 	EndCursor       *string `json:"endCursor"`
 }
-
-type Todo struct {
-	ID        string `json:"id"`
-	Text      string `json:"text"`
-	Completed bool   `json:"completed"`
-}
-
-func (Todo) IsNode()         {}
-func (Todo) IsSearchResult() {}
 
 type TodoConnection struct {
 	PageInfo   *PageInfo   `json:"pageInfo"`
@@ -47,11 +33,6 @@ type TodoConnection struct {
 type TodoEdge struct {
 	Node   *Todo  `json:"node"`
 	Cursor string `json:"cursor"`
-}
-
-type Viewer struct {
-	ID    string          `json:"id"`
-	Todos *TodoConnection `json:"todos"`
 }
 
 type TodoOrderBy string

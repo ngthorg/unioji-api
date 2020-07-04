@@ -55,12 +55,16 @@ models:
       - github.com/99designs/gqlgen/graphql.Int64
       - github.com/99designs/gqlgen/graphql.Int32
   User:
+    model: github.com/unioji/unioji-api/graph/model.User
     fields:
       friends:
         resolver: true
       todosConnection:
         resolver: true
   Todo:
+    model: github.com/unioji/unioji-api/graph/model.Todo
     fields:
       user:
         resolver: true
+  NewTodo:
+    model: github.com/unioji/unioji-api/graph/model.NewTodo

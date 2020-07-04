@@ -420,22 +420,11 @@ var sources = []*ast.Source{
 #
 # https://gqlgen.com/getting-started/
 
-directive @goModel(
-  model: String
-  models: [String!]
-) on OBJECT | INPUT_OBJECT | SCALAR | ENUM | INTERFACE | UNION
-
-directive @goField(
-  forceResolver: Boolean
-  name: String
-) on INPUT_FIELD_DEFINITION | FIELD_DEFINITION
-
 interface Node {
   id: ID!
 }
 
-type Todo implements Node
-  @goModel(model: "github.com/unioji/unioji-api/graph/model.Todo") {
+type Todo implements Node {
   id: ID!
   text: String!
   completed: Boolean!
@@ -468,8 +457,7 @@ enum TodoOrderBy {
   updatedAt_DESC
 }
 
-type User implements Node
-  @goModel(model: "github.com/unioji/unioji-api/graph/model.User") {
+type User implements Node {
   id: ID!
   name: String!
   username: String!
@@ -500,8 +488,7 @@ type Query {
   ): TodoConnection!
 }
 
-input NewTodo
-  @goModel(model: "github.com/unioji/unioji-api/graph/model.NewTodo") {
+input NewTodo {
   text: String!
   completed: Boolean!
 }
@@ -4046,38 +4033,6 @@ func (ec *executionContext) unmarshalOString2string(ctx context.Context, v inter
 
 func (ec *executionContext) marshalOString2string(ctx context.Context, sel ast.SelectionSet, v string) graphql.Marshaler {
 	return graphql.MarshalString(v)
-}
-
-func (ec *executionContext) unmarshalOString2ᚕstringᚄ(ctx context.Context, v interface{}) ([]string, error) {
-	var vSlice []interface{}
-	if v != nil {
-		if tmp1, ok := v.([]interface{}); ok {
-			vSlice = tmp1
-		} else {
-			vSlice = []interface{}{v}
-		}
-	}
-	var err error
-	res := make([]string, len(vSlice))
-	for i := range vSlice {
-		res[i], err = ec.unmarshalNString2string(ctx, vSlice[i])
-		if err != nil {
-			return nil, err
-		}
-	}
-	return res, nil
-}
-
-func (ec *executionContext) marshalOString2ᚕstringᚄ(ctx context.Context, sel ast.SelectionSet, v []string) graphql.Marshaler {
-	if v == nil {
-		return graphql.Null
-	}
-	ret := make(graphql.Array, len(v))
-	for i := range v {
-		ret[i] = ec.marshalNString2string(ctx, sel, v[i])
-	}
-
-	return ret
 }
 
 func (ec *executionContext) unmarshalOString2ᚖstring(ctx context.Context, v interface{}) (*string, error) {

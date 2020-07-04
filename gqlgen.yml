@@ -63,4 +63,4 @@ models:
   Todo:
     fields:
       user:
-        resolver: false
+        resolver: true

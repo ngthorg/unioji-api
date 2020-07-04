@@ -52,6 +52,14 @@ func (r *queryResolver) TodosConnection(ctx context.Context, after *string, befo
 	panic(fmt.Errorf("not implemented"))
 }
 
+func (r *todoResolver) User(ctx context.Context, obj *model.Todo) (*model.User, error) {
+	if obj.User != nil {
+		return obj.User, nil
+	}
+
+	return r.UserRepo.GetUserByID(obj.UserID)
+}
+
 func (r *userResolver) Friends(ctx context.Context, obj *model.User) ([]model.User, error) {
 	panic(fmt.Errorf("not implemented"))
 }
@@ -66,9 +74,13 @@ func (r *Resolver) Mutation() generated.MutationResolver { return &mutationResol
 // Query returns generated.QueryResolver implementation.
 func (r *Resolver) Query() generated.QueryResolver { return &queryResolver{r} }
 
+// Todo returns generated.TodoResolver implementation.
+func (r *Resolver) Todo() generated.TodoResolver { return &todoResolver{r} }
+
 // User returns generated.UserResolver implementation.
 func (r *Resolver) User() generated.UserResolver { return &userResolver{r} }
 
 type mutationResolver struct{ *Resolver }
 type queryResolver struct{ *Resolver }
+type todoResolver struct{ *Resolver }
 type userResolver struct{ *Resolver }

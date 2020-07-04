@@ -21,11 +21,12 @@ func (r *mutationResolver) CreateTodo(ctx context.Context, input model.NewTodo) 
 }
 
 func (r *queryResolver) Viewer(ctx context.Context) (*model.User, error) {
-	panic(fmt.Errorf("not implemented"))
+	// default query user id 1
+	// sau này sẽ dựa token
+	return r.UserRepo.GetUserByID("1")
 }
 
 func (r *queryResolver) Node(ctx context.Context, id string) (model.Node, error) {
-	fmt.Println("ctx", ctx)
 	todo, err := r.TodoRepo.GetTodoByID(id)
 
 	if err != nil {
@@ -39,7 +40,23 @@ func (r *queryResolver) Search(ctx context.Context, text string) ([]model.Search
 	panic(fmt.Errorf("not implemented"))
 }
 
-func (r *queryResolver) Todos(ctx context.Context, after *string, before *string, first *int, last *int, orderBy *model.TodoOrderBy) (*model.TodoConnection, error) {
+func (r *queryResolver) Users(ctx context.Context) ([]model.User, error) {
+	return r.UserRepo.GetUsers()
+}
+
+func (r *queryResolver) Todos(ctx context.Context) ([]model.Todo, error) {
+	return r.TodoRepo.GetTodos()
+}
+
+func (r *queryResolver) TodosConnection(ctx context.Context, after *string, before *string, first *int, last *int, orderBy *model.TodoOrderBy) (*model.TodoConnection, error) {
+	panic(fmt.Errorf("not implemented"))
+}
+
+func (r *userResolver) Friends(ctx context.Context, obj *model.User) ([]model.User, error) {
+	panic(fmt.Errorf("not implemented"))
+}
+
+func (r *userResolver) TodosConnection(ctx context.Context, obj *model.User, after *string, before *string, first *int, last *int, orderBy *model.TodoOrderBy) (*model.TodoConnection, error) {
 	panic(fmt.Errorf("not implemented"))
 }
 
@@ -49,5 +66,9 @@ func (r *Resolver) Mutation() generated.MutationResolver { return &mutationResol
 // Query returns generated.QueryResolver implementation.
 func (r *Resolver) Query() generated.QueryResolver { return &queryResolver{r} }
 
+// User returns generated.UserResolver implementation.
+func (r *Resolver) User() generated.UserResolver { return &userResolver{r} }
+
 type mutationResolver struct{ *Resolver }
 type queryResolver struct{ *Resolver }
+type userResolver struct{ *Resolver }

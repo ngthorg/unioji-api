@@ -9,4 +9,5 @@ import "github.com/unioji/unioji-api/postgres"
 // Resolver struct
 type Resolver struct {
 	TodoRepo postgres.TodoRepo
+	UserRepo postgres.UserRepo
 }

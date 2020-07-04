@@ -38,6 +38,7 @@ type Config struct {
 type ResolverRoot interface {
 	Mutation() MutationResolver
 	Query() QueryResolver
+	User() UserResolver
 }
 
 type DirectiveRoot struct {
@@ -56,16 +57,19 @@ type ComplexityRoot struct {
 	}
 
 	Query struct {
-		Node   func(childComplexity int, id string) int
-		Search func(childComplexity int, text string) int
-		Todos  func(childComplexity int, after *string, before *string, first *int, last *int, orderBy *model.TodoOrderBy) int
-		Viewer func(childComplexity int) int
+		Node            func(childComplexity int, id string) int
+		Search          func(childComplexity int, text string) int
+		Todos           func(childComplexity int) int
+		TodosConnection func(childComplexity int, after *string, before *string, first *int, last *int, orderBy *model.TodoOrderBy) int
+		Users           func(childComplexity int) int
+		Viewer          func(childComplexity int) int
 	}
 
 	Todo struct {
 		Completed func(childComplexity int) int
 		ID        func(childComplexity int) int
 		Text      func(childComplexity int) int
+		User      func(childComplexity int) int
 	}
 
 	TodoConnection struct {
@@ -81,11 +85,13 @@ type ComplexityRoot struct {
 	}
 
 	User struct {
-		Email    func(childComplexity int) int
-		ID       func(childComplexity int) int
-		Name     func(childComplexity int) int
-		Todos    func(childComplexity int, after *string, before *string, first *int, last *int, orderBy *model.TodoOrderBy) int
-		Username func(childComplexity int) int
+		Email           func(childComplexity int) int
+		Friends         func(childComplexity int) int
+		ID              func(childComplexity int) int
+		Name            func(childComplexity int) int
+		Todos           func(childComplexity int) int
+		TodosConnection func(childComplexity int, after *string, before *string, first *int, last *int, orderBy *model.TodoOrderBy) int
+		Username        func(childComplexity int) int
 	}
 }
 
@@ -96,7 +102,14 @@ type QueryResolver interface {
 	Viewer(ctx context.Context) (*model.User, error)
 	Node(ctx context.Context, id string) (model.Node, error)
 	Search(ctx context.Context, text string) ([]model.SearchResult, error)
-	Todos(ctx context.Context, after *string, before *string, first *int, last *int, orderBy *model.TodoOrderBy) (*model.TodoConnection, error)
+	Users(ctx context.Context) ([]model.User, error)
+	Todos(ctx context.Context) ([]model.Todo, error)
+	TodosConnection(ctx context.Context, after *string, before *string, first *int, last *int, orderBy *model.TodoOrderBy) (*model.TodoConnection, error)
+}
+type UserResolver interface {
+	Friends(ctx context.Context, obj *model.User) ([]model.User, error)
+
+	TodosConnection(ctx context.Context, obj *model.User, after *string, before *string, first *int, last *int, orderBy *model.TodoOrderBy) (*model.TodoConnection, error)
 }
 
 type executableSchema struct {
@@ -183,12 +196,26 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			break
 		}
 
-		args, err := ec.field_Query_todos_args(context.TODO(), rawArgs)
+		return e.complexity.Query.Todos(childComplexity), true
+
+	case "Query.todosConnection":
+		if e.complexity.Query.TodosConnection == nil {
+			break
+		}
+
+		args, err := ec.field_Query_todosConnection_args(context.TODO(), rawArgs)
 		if err != nil {
 			return 0, false
 		}
 
-		return e.complexity.Query.Todos(childComplexity, args["after"].(*string), args["before"].(*string), args["first"].(*int), args["last"].(*int), args["orderBy"].(*model.TodoOrderBy)), true
+		return e.complexity.Query.TodosConnection(childComplexity, args["after"].(*string), args["before"].(*string), args["first"].(*int), args["last"].(*int), args["orderBy"].(*model.TodoOrderBy)), true
+
+	case "Query.users":
+		if e.complexity.Query.Users == nil {
+			break
+		}
+
+		return e.complexity.Query.Users(childComplexity), true
 
 	case "Query.viewer":
 		if e.complexity.Query.Viewer == nil {
@@ -217,6 +244,13 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.Todo.Text(childComplexity), true
+
+	case "Todo.user":
+		if e.complexity.Todo.User == nil {
+			break
+		}
+
+		return e.complexity.Todo.User(childComplexity), true
 
 	case "TodoConnection.edges":
 		if e.complexity.TodoConnection.Edges == nil {
@@ -267,6 +301,13 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.User.Email(childComplexity), true
 
+	case "User.friends":
+		if e.complexity.User.Friends == nil {
+			break
+		}
+
+		return e.complexity.User.Friends(childComplexity), true
+
 	case "User.id":
 		if e.complexity.User.ID == nil {
 			break
@@ -286,12 +327,19 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			break
 		}
 
-		args, err := ec.field_User_todos_args(context.TODO(), rawArgs)
+		return e.complexity.User.Todos(childComplexity), true
+
+	case "User.todosConnection":
+		if e.complexity.User.TodosConnection == nil {
+			break
+		}
+
+		args, err := ec.field_User_todosConnection_args(context.TODO(), rawArgs)
 		if err != nil {
 			return 0, false
 		}
 
-		return e.complexity.User.Todos(childComplexity, args["after"].(*string), args["before"].(*string), args["first"].(*int), args["last"].(*int), args["orderBy"].(*model.TodoOrderBy)), true
+		return e.complexity.User.TodosConnection(childComplexity, args["after"].(*string), args["before"].(*string), args["first"].(*int), args["last"].(*int), args["orderBy"].(*model.TodoOrderBy)), true
 
 	case "User.username":
 		if e.complexity.User.Username == nil {
@@ -368,14 +416,26 @@ var sources = []*ast.Source{
 #
 # https://gqlgen.com/getting-started/
 
+directive @goModel(
+  model: String
+  models: [String!]
+) on OBJECT | INPUT_OBJECT | SCALAR | ENUM | INTERFACE | UNION
+
+directive @goField(
+  forceResolver: Boolean
+  name: String
+) on INPUT_FIELD_DEFINITION | FIELD_DEFINITION
+
 interface Node {
   id: ID!
 }
 
-type Todo implements Node {
+type Todo implements Node
+  @goModel(model: "github.com/unioji/unioji-api/graph/model.Todo") {
   id: ID!
   text: String!
   completed: Boolean!
+  user: User!
 }
 
 type TodoEdge {
@@ -404,12 +464,15 @@ enum TodoOrderBy {
   updatedAt_DESC
 }
 
-type User {
-  id: String!
+type User implements Node
+  @goModel(model: "github.com/unioji/unioji-api/graph/model.User") {
+  id: ID!
   name: String!
   username: String!
   email: String!
-  todos(
+  friends: [User!]!
+  todos: [Todo!]!
+  todosConnection(
     after: String
     before: String
     first: Int
@@ -422,7 +485,9 @@ type Query {
   viewer: User!
   node(id: ID!): Node
   search(text: String!): [SearchResult!]!
-  todos(
+  users: [User!]!
+  todos: [Todo!]!
+  todosConnection(
     after: String
     before: String
     first: Int
@@ -431,7 +496,8 @@ type Query {
   ): TodoConnection!
 }
 
-input NewTodo {
+input NewTodo
+  @goModel(model: "github.com/unioji/unioji-api/graph/model.NewTodo") {
   text: String!
   completed: Boolean!
 }
@@ -505,7 +571,7 @@ func (ec *executionContext) field_Query_search_args(ctx context.Context, rawArgs
 	return args, nil
 }
 
-func (ec *executionContext) field_Query_todos_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
+func (ec *executionContext) field_Query_todosConnection_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
 	var err error
 	args := map[string]interface{}{}
 	var arg0 *string
@@ -551,7 +617,7 @@ func (ec *executionContext) field_Query_todos_args(ctx context.Context, rawArgs 
 	return args, nil
 }
 
-func (ec *executionContext) field_User_todos_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
+func (ec *executionContext) field_User_todosConnection_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
 	var err error
 	args := map[string]interface{}{}
 	var arg0 *string
@@ -917,6 +983,40 @@ func (ec *executionContext) _Query_search(ctx context.Context, field graphql.Col
 	return ec.marshalNSearchResult2ᚕgithubᚗcomᚋuniojiᚋuniojiᚑapiᚋgraphᚋmodelᚐSearchResultᚄ(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) _Query_users(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:   "Query",
+		Field:    field,
+		Args:     nil,
+		IsMethod: true,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Query().Users(rctx)
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.([]model.User)
+	fc.Result = res
+	return ec.marshalNUser2ᚕgithubᚗcomᚋuniojiᚋuniojiᚑapiᚋgraphᚋmodelᚐUserᚄ(ctx, field.Selections, res)
+}
+
 func (ec *executionContext) _Query_todos(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -932,8 +1032,42 @@ func (ec *executionContext) _Query_todos(ctx context.Context, field graphql.Coll
 	}
 
 	ctx = graphql.WithFieldContext(ctx, fc)
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Query().Todos(rctx)
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.([]model.Todo)
+	fc.Result = res
+	return ec.marshalNTodo2ᚕgithubᚗcomᚋuniojiᚋuniojiᚑapiᚋgraphᚋmodelᚐTodoᚄ(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _Query_todosConnection(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:   "Query",
+		Field:    field,
+		Args:     nil,
+		IsMethod: true,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
 	rawArgs := field.ArgumentMap(ec.Variables)
-	args, err := ec.field_Query_todos_args(ctx, rawArgs)
+	args, err := ec.field_Query_todosConnection_args(ctx, rawArgs)
 	if err != nil {
 		ec.Error(ctx, err)
 		return graphql.Null
@@ -941,7 +1075,7 @@ func (ec *executionContext) _Query_todos(ctx context.Context, field graphql.Coll
 	fc.Args = args
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Query().Todos(rctx, args["after"].(*string), args["before"].(*string), args["first"].(*int), args["last"].(*int), args["orderBy"].(*model.TodoOrderBy))
+		return ec.resolvers.Query().TodosConnection(rctx, args["after"].(*string), args["before"].(*string), args["first"].(*int), args["last"].(*int), args["orderBy"].(*model.TodoOrderBy))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -1127,6 +1261,40 @@ func (ec *executionContext) _Todo_completed(ctx context.Context, field graphql.C
 	res := resTmp.(bool)
 	fc.Result = res
 	return ec.marshalNBoolean2bool(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _Todo_user(ctx context.Context, field graphql.CollectedField, obj *model.Todo) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:   "Todo",
+		Field:    field,
+		Args:     nil,
+		IsMethod: false,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.User, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*model.User)
+	fc.Result = res
+	return ec.marshalNUser2ᚖgithubᚗcomᚋuniojiᚋuniojiᚑapiᚋgraphᚋmodelᚐUser(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _TodoConnection_pageInfo(ctx context.Context, field graphql.CollectedField, obj *model.TodoConnection) (ret graphql.Marshaler) {
@@ -1358,7 +1526,7 @@ func (ec *executionContext) _User_id(ctx context.Context, field graphql.Collecte
 	}
 	res := resTmp.(string)
 	fc.Result = res
-	return ec.marshalNString2string(ctx, field.Selections, res)
+	return ec.marshalNID2string(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _User_name(ctx context.Context, field graphql.CollectedField, obj *model.User) (ret graphql.Marshaler) {
@@ -1463,6 +1631,40 @@ func (ec *executionContext) _User_email(ctx context.Context, field graphql.Colle
 	return ec.marshalNString2string(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) _User_friends(ctx context.Context, field graphql.CollectedField, obj *model.User) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:   "User",
+		Field:    field,
+		Args:     nil,
+		IsMethod: true,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.User().Friends(rctx, obj)
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.([]model.User)
+	fc.Result = res
+	return ec.marshalNUser2ᚕgithubᚗcomᚋuniojiᚋuniojiᚑapiᚋgraphᚋmodelᚐUserᚄ(ctx, field.Selections, res)
+}
+
 func (ec *executionContext) _User_todos(ctx context.Context, field graphql.CollectedField, obj *model.User) (ret graphql.Marshaler) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -1478,8 +1680,42 @@ func (ec *executionContext) _User_todos(ctx context.Context, field graphql.Colle
 	}
 
 	ctx = graphql.WithFieldContext(ctx, fc)
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Todos, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.([]*model.Todo)
+	fc.Result = res
+	return ec.marshalNTodo2ᚕᚖgithubᚗcomᚋuniojiᚋuniojiᚑapiᚋgraphᚋmodelᚐTodoᚄ(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _User_todosConnection(ctx context.Context, field graphql.CollectedField, obj *model.User) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:   "User",
+		Field:    field,
+		Args:     nil,
+		IsMethod: true,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
 	rawArgs := field.ArgumentMap(ec.Variables)
-	args, err := ec.field_User_todos_args(ctx, rawArgs)
+	args, err := ec.field_User_todosConnection_args(ctx, rawArgs)
 	if err != nil {
 		ec.Error(ctx, err)
 		return graphql.Null
@@ -1487,7 +1723,7 @@ func (ec *executionContext) _User_todos(ctx context.Context, field graphql.Colle
 	fc.Args = args
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return obj.Todos, nil
+		return ec.resolvers.User().TodosConnection(rctx, obj, args["after"].(*string), args["before"].(*string), args["first"].(*int), args["last"].(*int), args["orderBy"].(*model.TodoOrderBy))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -2598,6 +2834,13 @@ func (ec *executionContext) _Node(ctx context.Context, sel ast.SelectionSet, obj
 			return graphql.Null
 		}
 		return ec._Todo(ctx, sel, obj)
+	case model.User:
+		return ec._User(ctx, sel, &obj)
+	case *model.User:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._User(ctx, sel, obj)
 	default:
 		panic(fmt.Errorf("unexpected type %T", obj))
 	}
@@ -2744,6 +2987,20 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 				}
 				return res
 			})
+		case "users":
+			field := field
+			out.Concurrently(i, func() (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_users(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&invalids, 1)
+				}
+				return res
+			})
 		case "todos":
 			field := field
 			out.Concurrently(i, func() (res graphql.Marshaler) {
@@ -2753,6 +3010,20 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 					}
 				}()
 				res = ec._Query_todos(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&invalids, 1)
+				}
+				return res
+			})
+		case "todosConnection":
+			field := field
+			out.Concurrently(i, func() (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_todosConnection(ctx, field)
 				if res == graphql.Null {
 					atomic.AddUint32(&invalids, 1)
 				}
@@ -2796,6 +3067,11 @@ func (ec *executionContext) _Todo(ctx context.Context, sel ast.SelectionSet, obj
 			}
 		case "completed":
 			out.Values[i] = ec._Todo_completed(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		case "user":
+			out.Values[i] = ec._Todo_user(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
@@ -2878,7 +3154,7 @@ func (ec *executionContext) _TodoEdge(ctx context.Context, sel ast.SelectionSet,
 	return out
 }
 
-var userImplementors = []string{"User"}
+var userImplementors = []string{"User", "Node"}
 
 func (ec *executionContext) _User(ctx context.Context, sel ast.SelectionSet, obj *model.User) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, userImplementors)
@@ -2892,28 +3168,56 @@ func (ec *executionContext) _User(ctx context.Context, sel ast.SelectionSet, obj
 		case "id":
 			out.Values[i] = ec._User_id(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				invalids++
+				atomic.AddUint32(&invalids, 1)
 			}
 		case "name":
 			out.Values[i] = ec._User_name(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				invalids++
+				atomic.AddUint32(&invalids, 1)
 			}
 		case "username":
 			out.Values[i] = ec._User_username(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				invalids++
+				atomic.AddUint32(&invalids, 1)
 			}
 		case "email":
 			out.Values[i] = ec._User_email(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				invalids++
+				atomic.AddUint32(&invalids, 1)
 			}
+		case "friends":
+			field := field
+			out.Concurrently(i, func() (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._User_friends(ctx, field, obj)
+				if res == graphql.Null {
+					atomic.AddUint32(&invalids, 1)
+				}
+				return res
+			})
 		case "todos":
 			out.Values[i] = ec._User_todos(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				invalids++
+				atomic.AddUint32(&invalids, 1)
 			}
+		case "todosConnection":
+			field := field
+			out.Concurrently(i, func() (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._User_todosConnection(ctx, field, obj)
+				if res == graphql.Null {
+					atomic.AddUint32(&invalids, 1)
+				}
+				return res
+			})
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -3295,6 +3599,80 @@ func (ec *executionContext) marshalNTodo2githubᚗcomᚋuniojiᚋuniojiᚑapiᚋ
 	return ec._Todo(ctx, sel, &v)
 }
 
+func (ec *executionContext) marshalNTodo2ᚕgithubᚗcomᚋuniojiᚋuniojiᚑapiᚋgraphᚋmodelᚐTodoᚄ(ctx context.Context, sel ast.SelectionSet, v []model.Todo) graphql.Marshaler {
+	ret := make(graphql.Array, len(v))
+	var wg sync.WaitGroup
+	isLen1 := len(v) == 1
+	if !isLen1 {
+		wg.Add(len(v))
+	}
+	for i := range v {
+		i := i
+		fc := &graphql.FieldContext{
+			Index:  &i,
+			Result: &v[i],
+		}
+		ctx := graphql.WithFieldContext(ctx, fc)
+		f := func(i int) {
+			defer func() {
+				if r := recover(); r != nil {
+					ec.Error(ctx, ec.Recover(ctx, r))
+					ret = nil
+				}
+			}()
+			if !isLen1 {
+				defer wg.Done()
+			}
+			ret[i] = ec.marshalNTodo2githubᚗcomᚋuniojiᚋuniojiᚑapiᚋgraphᚋmodelᚐTodo(ctx, sel, v[i])
+		}
+		if isLen1 {
+			f(i)
+		} else {
+			go f(i)
+		}
+
+	}
+	wg.Wait()
+	return ret
+}
+
+func (ec *executionContext) marshalNTodo2ᚕᚖgithubᚗcomᚋuniojiᚋuniojiᚑapiᚋgraphᚋmodelᚐTodoᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.Todo) graphql.Marshaler {
+	ret := make(graphql.Array, len(v))
+	var wg sync.WaitGroup
+	isLen1 := len(v) == 1
+	if !isLen1 {
+		wg.Add(len(v))
+	}
+	for i := range v {
+		i := i
+		fc := &graphql.FieldContext{
+			Index:  &i,
+			Result: &v[i],
+		}
+		ctx := graphql.WithFieldContext(ctx, fc)
+		f := func(i int) {
+			defer func() {
+				if r := recover(); r != nil {
+					ec.Error(ctx, ec.Recover(ctx, r))
+					ret = nil
+				}
+			}()
+			if !isLen1 {
+				defer wg.Done()
+			}
+			ret[i] = ec.marshalNTodo2ᚖgithubᚗcomᚋuniojiᚋuniojiᚑapiᚋgraphᚋmodelᚐTodo(ctx, sel, v[i])
+		}
+		if isLen1 {
+			f(i)
+		} else {
+			go f(i)
+		}
+
+	}
+	wg.Wait()
+	return ret
+}
+
 func (ec *executionContext) marshalNTodo2ᚖgithubᚗcomᚋuniojiᚋuniojiᚑapiᚋgraphᚋmodelᚐTodo(ctx context.Context, sel ast.SelectionSet, v *model.Todo) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
@@ -3321,6 +3699,43 @@ func (ec *executionContext) marshalNTodoConnection2ᚖgithubᚗcomᚋuniojiᚋun
 
 func (ec *executionContext) marshalNUser2githubᚗcomᚋuniojiᚋuniojiᚑapiᚋgraphᚋmodelᚐUser(ctx context.Context, sel ast.SelectionSet, v model.User) graphql.Marshaler {
 	return ec._User(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNUser2ᚕgithubᚗcomᚋuniojiᚋuniojiᚑapiᚋgraphᚋmodelᚐUserᚄ(ctx context.Context, sel ast.SelectionSet, v []model.User) graphql.Marshaler {
+	ret := make(graphql.Array, len(v))
+	var wg sync.WaitGroup
+	isLen1 := len(v) == 1
+	if !isLen1 {
+		wg.Add(len(v))
+	}
+	for i := range v {
+		i := i
+		fc := &graphql.FieldContext{
+			Index:  &i,
+			Result: &v[i],
+		}
+		ctx := graphql.WithFieldContext(ctx, fc)
+		f := func(i int) {
+			defer func() {
+				if r := recover(); r != nil {
+					ec.Error(ctx, ec.Recover(ctx, r))
+					ret = nil
+				}
+			}()
+			if !isLen1 {
+				defer wg.Done()
+			}
+			ret[i] = ec.marshalNUser2githubᚗcomᚋuniojiᚋuniojiᚑapiᚋgraphᚋmodelᚐUser(ctx, sel, v[i])
+		}
+		if isLen1 {
+			f(i)
+		} else {
+			go f(i)
+		}
+
+	}
+	wg.Wait()
+	return ret
 }
 
 func (ec *executionContext) marshalNUser2ᚖgithubᚗcomᚋuniojiᚋuniojiᚑapiᚋgraphᚋmodelᚐUser(ctx context.Context, sel ast.SelectionSet, v *model.User) graphql.Marshaler {
@@ -3618,6 +4033,38 @@ func (ec *executionContext) unmarshalOString2string(ctx context.Context, v inter
 
 func (ec *executionContext) marshalOString2string(ctx context.Context, sel ast.SelectionSet, v string) graphql.Marshaler {
 	return graphql.MarshalString(v)
+}
+
+func (ec *executionContext) unmarshalOString2ᚕstringᚄ(ctx context.Context, v interface{}) ([]string, error) {
+	var vSlice []interface{}
+	if v != nil {
+		if tmp1, ok := v.([]interface{}); ok {
+			vSlice = tmp1
+		} else {
+			vSlice = []interface{}{v}
+		}
+	}
+	var err error
+	res := make([]string, len(vSlice))
+	for i := range vSlice {
+		res[i], err = ec.unmarshalNString2string(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) marshalOString2ᚕstringᚄ(ctx context.Context, sel ast.SelectionSet, v []string) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	ret := make(graphql.Array, len(v))
+	for i := range v {
+		ret[i] = ec.marshalNString2string(ctx, sel, v[i])
+	}
+
+	return ret
 }
 
 func (ec *executionContext) unmarshalOString2ᚖstring(ctx context.Context, v interface{}) (*string, error) {

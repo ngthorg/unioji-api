@@ -12,9 +12,8 @@ type TodoRepo struct {
 
 // GetTodoByID is a method in TodoRepo
 func (m *TodoRepo) GetTodoByID(id string) (*model.Todo, error) {
-	todo := &model.Todo{ID: id}
-
-	err := m.DB.Select(todo)
+	todo := new(model.Todo)
+	err := m.DB.Model(todo).Relation("User").Where("todo.id = ?", id).Select()
 
 	if err != nil {
 		return nil, err
@@ -25,12 +24,12 @@ func (m *TodoRepo) GetTodoByID(id string) (*model.Todo, error) {
 
 // GetTodos is a method in TodoRepo
 func (m *TodoRepo) GetTodos() ([]model.Todo, error) {
-	var todos []model.Todo
-	err := m.DB.Model(&todos).Select()
+	todos := new([]model.Todo)
+	err := m.DB.Model(todos).Relation("User").Select()
 
 	if err != nil {
 		return nil, err
 	}
 
-	return todos, nil
+	return *todos, nil
 }

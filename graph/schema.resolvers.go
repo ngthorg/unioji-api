@@ -5,10 +5,12 @@ package graph
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/unioji/unioji-api/graph/generated"
 	"github.com/unioji/unioji-api/graph/model"
+	"github.com/unioji/unioji-api/relay"
 )
 
 func (r *mutationResolver) CreateTodo(ctx context.Context, input model.NewTodo) (*model.Todo, error) {
@@ -27,13 +29,19 @@ func (r *queryResolver) Viewer(ctx context.Context) (*model.User, error) {
 }
 
 func (r *queryResolver) Node(ctx context.Context, id string) (model.Node, error) {
-	todo, err := r.TodoRepo.GetTodoByID(id)
-
-	if err != nil {
-		return nil, err
+	globalID := relay.FromGlobalID(id)
+	if globalID == nil {
+		return nil, errors.New("Unknown node id")
 	}
 
-	return *todo, nil
+	switch globalID.Type {
+	case "User":
+		return r.UserRepo.GetUserByID(globalID.ID)
+	case "Todo":
+		return r.TodoRepo.GetTodoByID(globalID.ID)
+	default:
+		return nil, errors.New("Unknown node type")
+	}
 }
 
 func (r *queryResolver) Search(ctx context.Context, text string) ([]model.SearchResult, error) {
@@ -52,12 +60,20 @@ func (r *queryResolver) TodosConnection(ctx context.Context, after *string, befo
 	panic(fmt.Errorf("not implemented"))
 }
 
+func (r *todoResolver) ID(ctx context.Context, obj *model.Todo) (string, error) {
+	return relay.ToGlobalID("Todo", obj.ID), nil
+}
+
 func (r *todoResolver) User(ctx context.Context, obj *model.Todo) (*model.User, error) {
 	if obj.User != nil {
 		return obj.User, nil
 	}
 
 	return r.UserRepo.GetUserByID(obj.UserID)
+}
+
+func (r *userResolver) ID(ctx context.Context, obj *model.User) (string, error) {
+	return relay.ToGlobalID("User", obj.ID), nil
 }
 
 func (r *userResolver) Friends(ctx context.Context, obj *model.User) ([]model.User, error) {

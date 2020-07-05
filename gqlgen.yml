@@ -57,6 +57,8 @@ models:
   User:
     model: github.com/unioji/unioji-api/graph/model.User
     fields:
+      id:
+        resolver: true
       friends:
         resolver: true
       todosConnection:
@@ -64,6 +66,8 @@ models:
   Todo:
     model: github.com/unioji/unioji-api/graph/model.Todo
     fields:
+      id:
+        resolver: true
       user:
         resolver: true
   NewTodo:

@@ -2,7 +2,6 @@ package connections
 
 import (
 	"errors"
-	"math"
 
 	"github.com/unioji/unioji-api/graph/model"
 	"github.com/unioji/unioji-api/graph/relay"
@@ -47,38 +46,13 @@ func ConnectionFromSliceTodos(todos []*model.Todo, args relay.ConnectionArgs,
 		}
 	}
 
-	sliceStart := 0
-	sliceEnd := sliceStart + meta.Length
-	beforeOffset := meta.Length
-	afterOffset := -1
-	lowerBound := 0
-	upperBound := meta.Length
-	hasNextPage := false
-	hasPreviousPage := false
-	if args.Before != nil {
-		beforeOffset, _ = relay.CursorToOffset(*args.Before)
-		upperBound = beforeOffset
-	}
-	if args.After != nil {
-		afterOffset, _ = relay.CursorToOffset(*args.After)
-		lowerBound = afterOffset + 1
-	}
-	startOffset := int(math.Max(float64(sliceStart-1), math.Max(float64(afterOffset), -1))) + 1
-	endOffset := int(math.Min(float64(sliceEnd), math.Min(float64(beforeOffset), float64(meta.Length))))
-	if args.First != nil {
-		endOffset = int(math.Min(float64(endOffset), float64(startOffset+*args.First)))
-		hasNextPage = endOffset < upperBound
-	}
-	if args.Last != nil {
-		startOffset = int(math.Max(float64(startOffset), float64(endOffset-*args.Last)))
-		hasPreviousPage = startOffset > lowerBound
-	}
+	pageInfo := HandlinPageInfo(args, meta)
 
 	edges := []*model.TodoEdge{}
 	for i, todo := range todos {
 		edges = append(edges, &model.TodoEdge{
 			Node:   todo,
-			Cursor: relay.OffsetToCursor(startOffset + i),
+			Cursor: relay.OffsetToCursor(pageInfo.startOffset + i),
 		})
 	}
 
@@ -90,12 +64,12 @@ func ConnectionFromSliceTodos(todos []*model.Todo, args relay.ConnectionArgs,
 
 	return &model.TodoConnection{
 		PageInfo: &model.PageInfo{
-			HasPreviousPage: hasPreviousPage,
-			HasNextPage:     hasNextPage,
+			HasPreviousPage: pageInfo.hasPrev,
+			HasNextPage:     pageInfo.hasNext,
 			StartCursor:     &startCursor,
 			EndCursor:       &endCursor,
 		},
-		// Edges:      edges,
+		Edges:      edges,
 		Nodes:      todos,
 		TotalCount: meta.Length,
 	}, nil

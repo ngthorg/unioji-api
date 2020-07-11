@@ -6,6 +6,18 @@ interface Node {
   id: ID!
 }
 
+type NodeEdge {
+  node: Node!
+  cursor: String!
+}
+
+type NodeConnection {
+  pageInfo: PageInfo!
+  edges: [NodeEdge]
+  nodes: [Node]
+  totalCount: Int!
+}
+
 type Todo implements Node {
   id: ID!
   text: String!
@@ -58,6 +70,13 @@ type User implements Node {
 type Query {
   viewer: User!
   node(id: ID!): Node
+  nodes(
+    after: String
+    before: String
+    first: Int
+    last: Int
+    ids: [ID!]!
+  ): NodeConnection
   search(text: String!): [SearchResult!]!
   users: [User!]!
   todos: [Todo!]!

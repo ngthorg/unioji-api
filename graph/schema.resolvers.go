@@ -8,9 +8,10 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/unioji/unioji-api/graph/connections"
 	"github.com/unioji/unioji-api/graph/generated"
 	"github.com/unioji/unioji-api/graph/model"
-	"github.com/unioji/unioji-api/relay"
+	"github.com/unioji/unioji-api/graph/relay"
 )
 
 func (r *mutationResolver) CreateTodo(ctx context.Context, input model.NewTodo) (*model.Todo, error) {
@@ -57,7 +58,67 @@ func (r *queryResolver) Todos(ctx context.Context) ([]model.Todo, error) {
 }
 
 func (r *queryResolver) TodosConnection(ctx context.Context, after *string, before *string, first *int, last *int, orderBy *model.TodoOrderBy) (*model.TodoConnection, error) {
-	panic(fmt.Errorf("not implemented"))
+	todos := []*model.Todo{
+		{
+			ID:        "1",
+			Text:      "Test 1",
+			Completed: true,
+		},
+		{
+			ID:        "2",
+			Text:      "Demo",
+			Completed: false,
+		},
+		{
+			ID:        "3",
+			Text:      "Test 3",
+			Completed: false,
+		},
+		{
+			ID:        "4",
+			Text:      "Test 4",
+			Completed: false,
+		},
+		{
+			ID:        "5",
+			Text:      "Test 5",
+			Completed: false,
+		},
+		{
+			ID:        "6",
+			Text:      "Test 6",
+			Completed: false,
+		},
+		{
+			ID:        "7",
+			Text:      "Test 7",
+			Completed: false,
+		},
+		{
+			ID:        "8",
+			Text:      "Test 8",
+			Completed: false,
+		},
+		{
+			ID:        "9",
+			Text:      "Test 9",
+			Completed: false,
+		},
+		{
+			ID:        "10",
+			Text:      "Test 10",
+			Completed: false,
+		},
+	}
+
+	return connections.ConnectionFromSliceTodos(todos, relay.ConnectionArgs{
+		Before: before,
+		After:  after,
+		First:  first,
+		Last:   last,
+	}, relay.SliceMetaInfo{
+		Length: 20,
+	})
 }
 
 func (r *todoResolver) ID(ctx context.Context, obj *model.Todo) (string, error) {

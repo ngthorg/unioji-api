@@ -45,6 +45,36 @@ func (r *queryResolver) Node(ctx context.Context, id string) (model.Node, error)
 	}
 }
 
+func (r *queryResolver) Nodes(ctx context.Context, after *string, before *string, first *int, last *int, ids []string) (*model.NodeConnection, error) {
+	nodes := []model.Node{}
+	for _, id := range ids {
+		globalID := relay.FromGlobalID(id)
+		if globalID == nil {
+			return nil, errors.New(fmt.Sprintf("Unknown node id: %v", id))
+		}
+		switch globalID.Type {
+		case "User":
+			node, _ := r.UserRepo.GetUserByID(globalID.ID)
+			nodes = append(nodes, node)
+			break
+		case "Todo":
+			node, _ := r.TodoRepo.GetTodoByID(globalID.ID)
+			nodes = append(nodes, node)
+			break
+		default:
+			return nil, errors.New("Unknown node type")
+		}
+	}
+	return connections.ConnectionFromSliceNodes(nodes, relay.ConnectionArgs{
+		Before: before,
+		After:  after,
+		First:  first,
+		Last:   last,
+	}, relay.SliceMetaInfo{
+		Length: len(nodes),
+	})
+}
+
 func (r *queryResolver) Search(ctx context.Context, text string) ([]model.SearchResult, error) {
 	panic(fmt.Errorf("not implemented"))
 }

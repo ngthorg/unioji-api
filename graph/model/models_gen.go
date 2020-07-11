@@ -16,6 +16,18 @@ type SearchResult interface {
 	IsSearchResult()
 }
 
+type NodeConnection struct {
+	PageInfo   *PageInfo   `json:"pageInfo"`
+	Edges      []*NodeEdge `json:"edges"`
+	Nodes      []Node      `json:"nodes"`
+	TotalCount int         `json:"totalCount"`
+}
+
+type NodeEdge struct {
+	Node   Node   `json:"node"`
+	Cursor string `json:"cursor"`
+}
+
 type PageInfo struct {
 	HasNextPage     bool    `json:"hasNextPage"`
 	HasPreviousPage bool    `json:"hasPreviousPage"`

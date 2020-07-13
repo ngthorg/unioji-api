@@ -33,3 +33,13 @@ func (m *TodoRepo) GetTodos() ([]model.Todo, error) {
 
 	return *todos, nil
 }
+
+// SearchTodos is a method in TodoRepo
+func (m *TodoRepo) SearchTodos(text string) ([]model.Todo, error) {
+	todos := new([]model.Todo)
+	err := m.DB.Model(todos).Relation("User").Where("todo.text LIKE ?", "%"+text+"%").Select()
+	if err != nil {
+		return nil, err
+	}
+	return *todos, nil
+}

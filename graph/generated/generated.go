@@ -72,11 +72,23 @@ type ComplexityRoot struct {
 	Query struct {
 		Node            func(childComplexity int, id string) int
 		Nodes           func(childComplexity int, after *string, before *string, first *int, last *int, ids []string) int
-		Search          func(childComplexity int, text string) int
+		Search          func(childComplexity int, after *string, before *string, first *int, last *int, text string) int
 		Todos           func(childComplexity int) int
 		TodosConnection func(childComplexity int, after *string, before *string, first *int, last *int, orderBy *model.TodoOrderBy) int
 		Users           func(childComplexity int) int
 		Viewer          func(childComplexity int) int
+	}
+
+	SearchResultConnection struct {
+		Edges      func(childComplexity int) int
+		Nodes      func(childComplexity int) int
+		PageInfo   func(childComplexity int) int
+		TotalCount func(childComplexity int) int
+	}
+
+	SearchResultEdge struct {
+		Cursor func(childComplexity int) int
+		Node   func(childComplexity int) int
 	}
 
 	Todo struct {
@@ -116,7 +128,7 @@ type QueryResolver interface {
 	Viewer(ctx context.Context) (*model.User, error)
 	Node(ctx context.Context, id string) (model.Node, error)
 	Nodes(ctx context.Context, after *string, before *string, first *int, last *int, ids []string) (*model.NodeConnection, error)
-	Search(ctx context.Context, text string) ([]model.SearchResult, error)
+	Search(ctx context.Context, after *string, before *string, first *int, last *int, text string) (*model.SearchResultConnection, error)
 	Users(ctx context.Context) ([]model.User, error)
 	Todos(ctx context.Context) ([]model.Todo, error)
 	TodosConnection(ctx context.Context, after *string, before *string, first *int, last *int, orderBy *model.TodoOrderBy) (*model.TodoConnection, error)
@@ -265,7 +277,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			return 0, false
 		}
 
-		return e.complexity.Query.Search(childComplexity, args["text"].(string)), true
+		return e.complexity.Query.Search(childComplexity, args["after"].(*string), args["before"].(*string), args["first"].(*int), args["last"].(*int), args["text"].(string)), true
 
 	case "Query.todos":
 		if e.complexity.Query.Todos == nil {
@@ -299,6 +311,48 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.Query.Viewer(childComplexity), true
+
+	case "SearchResultConnection.edges":
+		if e.complexity.SearchResultConnection.Edges == nil {
+			break
+		}
+
+		return e.complexity.SearchResultConnection.Edges(childComplexity), true
+
+	case "SearchResultConnection.nodes":
+		if e.complexity.SearchResultConnection.Nodes == nil {
+			break
+		}
+
+		return e.complexity.SearchResultConnection.Nodes(childComplexity), true
+
+	case "SearchResultConnection.pageInfo":
+		if e.complexity.SearchResultConnection.PageInfo == nil {
+			break
+		}
+
+		return e.complexity.SearchResultConnection.PageInfo(childComplexity), true
+
+	case "SearchResultConnection.totalCount":
+		if e.complexity.SearchResultConnection.TotalCount == nil {
+			break
+		}
+
+		return e.complexity.SearchResultConnection.TotalCount(childComplexity), true
+
+	case "SearchResultEdge.cursor":
+		if e.complexity.SearchResultEdge.Cursor == nil {
+			break
+		}
+
+		return e.complexity.SearchResultEdge.Cursor(childComplexity), true
+
+	case "SearchResultEdge.node":
+		if e.complexity.SearchResultEdge.Node == nil {
+			break
+		}
+
+		return e.complexity.SearchResultEdge.Node(childComplexity), true
 
 	case "Todo.completed":
 		if e.complexity.Todo.Completed == nil {
@@ -566,8 +620,14 @@ type Query {
     first: Int
     last: Int
     ids: [ID!]!
-  ): NodeConnection
-  search(text: String!): [SearchResult!]!
+  ): NodeConnection!
+  search(
+    after: String
+    before: String
+    first: Int
+    last: Int
+    text: String!
+  ): SearchResultConnection!
   users: [User!]!
   todos: [Todo!]!
   todosConnection(
@@ -588,7 +648,19 @@ type Mutation {
   createTodo(input: NewTodo!): Todo!
 }
 
-union SearchResult = Todo
+union SearchResult = Todo | User
+
+type SearchResultEdge {
+  node: SearchResult!
+  cursor: String!
+}
+
+type SearchResultConnection {
+  pageInfo: PageInfo!
+  edges: [SearchResultEdge]
+  nodes: [SearchResult]
+  totalCount: Int!
+}
 `, BuiltIn: false},
 }
 var parsedSchema = gqlparser.MustLoadSchema(sources...)
@@ -688,14 +760,46 @@ func (ec *executionContext) field_Query_nodes_args(ctx context.Context, rawArgs 
 func (ec *executionContext) field_Query_search_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
 	var err error
 	args := map[string]interface{}{}
-	var arg0 string
-	if tmp, ok := rawArgs["text"]; ok {
-		arg0, err = ec.unmarshalNString2string(ctx, tmp)
+	var arg0 *string
+	if tmp, ok := rawArgs["after"]; ok {
+		arg0, err = ec.unmarshalOString2ᚖstring(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
 	}
-	args["text"] = arg0
+	args["after"] = arg0
+	var arg1 *string
+	if tmp, ok := rawArgs["before"]; ok {
+		arg1, err = ec.unmarshalOString2ᚖstring(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["before"] = arg1
+	var arg2 *int
+	if tmp, ok := rawArgs["first"]; ok {
+		arg2, err = ec.unmarshalOInt2ᚖint(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["first"] = arg2
+	var arg3 *int
+	if tmp, ok := rawArgs["last"]; ok {
+		arg3, err = ec.unmarshalOInt2ᚖint(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["last"] = arg3
+	var arg4 string
+	if tmp, ok := rawArgs["text"]; ok {
+		arg4, err = ec.unmarshalNString2string(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["text"] = arg4
 	return args, nil
 }
 
@@ -1299,11 +1403,14 @@ func (ec *executionContext) _Query_nodes(ctx context.Context, field graphql.Coll
 		return graphql.Null
 	}
 	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
 		return graphql.Null
 	}
 	res := resTmp.(*model.NodeConnection)
 	fc.Result = res
-	return ec.marshalONodeConnection2ᚖgithubᚗcomᚋuniojiᚋuniojiᚑapiᚋgraphᚋmodelᚐNodeConnection(ctx, field.Selections, res)
+	return ec.marshalNNodeConnection2ᚖgithubᚗcomᚋuniojiᚋuniojiᚑapiᚋgraphᚋmodelᚐNodeConnection(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Query_search(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -1330,7 +1437,7 @@ func (ec *executionContext) _Query_search(ctx context.Context, field graphql.Col
 	fc.Args = args
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Query().Search(rctx, args["text"].(string))
+		return ec.resolvers.Query().Search(rctx, args["after"].(*string), args["before"].(*string), args["first"].(*int), args["last"].(*int), args["text"].(string))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -1342,9 +1449,9 @@ func (ec *executionContext) _Query_search(ctx context.Context, field graphql.Col
 		}
 		return graphql.Null
 	}
-	res := resTmp.([]model.SearchResult)
+	res := resTmp.(*model.SearchResultConnection)
 	fc.Result = res
-	return ec.marshalNSearchResult2ᚕgithubᚗcomᚋuniojiᚋuniojiᚑapiᚋgraphᚋmodelᚐSearchResultᚄ(ctx, field.Selections, res)
+	return ec.marshalNSearchResultConnection2ᚖgithubᚗcomᚋuniojiᚋuniojiᚑapiᚋgraphᚋmodelᚐSearchResultConnection(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Query_users(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -1523,6 +1630,204 @@ func (ec *executionContext) _Query___schema(ctx context.Context, field graphql.C
 	res := resTmp.(*introspection.Schema)
 	fc.Result = res
 	return ec.marshalO__Schema2ᚖgithubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚋintrospectionᚐSchema(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _SearchResultConnection_pageInfo(ctx context.Context, field graphql.CollectedField, obj *model.SearchResultConnection) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:   "SearchResultConnection",
+		Field:    field,
+		Args:     nil,
+		IsMethod: false,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.PageInfo, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*model.PageInfo)
+	fc.Result = res
+	return ec.marshalNPageInfo2ᚖgithubᚗcomᚋuniojiᚋuniojiᚑapiᚋgraphᚋmodelᚐPageInfo(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _SearchResultConnection_edges(ctx context.Context, field graphql.CollectedField, obj *model.SearchResultConnection) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:   "SearchResultConnection",
+		Field:    field,
+		Args:     nil,
+		IsMethod: false,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Edges, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		return graphql.Null
+	}
+	res := resTmp.([]*model.SearchResultEdge)
+	fc.Result = res
+	return ec.marshalOSearchResultEdge2ᚕᚖgithubᚗcomᚋuniojiᚋuniojiᚑapiᚋgraphᚋmodelᚐSearchResultEdge(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _SearchResultConnection_nodes(ctx context.Context, field graphql.CollectedField, obj *model.SearchResultConnection) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:   "SearchResultConnection",
+		Field:    field,
+		Args:     nil,
+		IsMethod: false,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Nodes, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		return graphql.Null
+	}
+	res := resTmp.([]model.SearchResult)
+	fc.Result = res
+	return ec.marshalOSearchResult2ᚕgithubᚗcomᚋuniojiᚋuniojiᚑapiᚋgraphᚋmodelᚐSearchResult(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _SearchResultConnection_totalCount(ctx context.Context, field graphql.CollectedField, obj *model.SearchResultConnection) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:   "SearchResultConnection",
+		Field:    field,
+		Args:     nil,
+		IsMethod: false,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.TotalCount, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(int)
+	fc.Result = res
+	return ec.marshalNInt2int(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _SearchResultEdge_node(ctx context.Context, field graphql.CollectedField, obj *model.SearchResultEdge) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:   "SearchResultEdge",
+		Field:    field,
+		Args:     nil,
+		IsMethod: false,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Node, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(model.SearchResult)
+	fc.Result = res
+	return ec.marshalNSearchResult2githubᚗcomᚋuniojiᚋuniojiᚑapiᚋgraphᚋmodelᚐSearchResult(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _SearchResultEdge_cursor(ctx context.Context, field graphql.CollectedField, obj *model.SearchResultEdge) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:   "SearchResultEdge",
+		Field:    field,
+		Args:     nil,
+		IsMethod: false,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Cursor, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNString2string(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Todo_id(ctx context.Context, field graphql.CollectedField, obj *model.Todo) (ret graphql.Marshaler) {
@@ -3221,6 +3526,13 @@ func (ec *executionContext) _SearchResult(ctx context.Context, sel ast.Selection
 			return graphql.Null
 		}
 		return ec._Todo(ctx, sel, obj)
+	case model.User:
+		return ec._User(ctx, sel, &obj)
+	case *model.User:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._User(ctx, sel, obj)
 	default:
 		panic(fmt.Errorf("unexpected type %T", obj))
 	}
@@ -3414,6 +3726,9 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 					}
 				}()
 				res = ec._Query_nodes(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&invalids, 1)
+				}
 				return res
 			})
 		case "search":
@@ -3476,6 +3791,74 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 			out.Values[i] = ec._Query___type(ctx, field)
 		case "__schema":
 			out.Values[i] = ec._Query___schema(ctx, field)
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch()
+	if invalids > 0 {
+		return graphql.Null
+	}
+	return out
+}
+
+var searchResultConnectionImplementors = []string{"SearchResultConnection"}
+
+func (ec *executionContext) _SearchResultConnection(ctx context.Context, sel ast.SelectionSet, obj *model.SearchResultConnection) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, searchResultConnectionImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	var invalids uint32
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("SearchResultConnection")
+		case "pageInfo":
+			out.Values[i] = ec._SearchResultConnection_pageInfo(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		case "edges":
+			out.Values[i] = ec._SearchResultConnection_edges(ctx, field, obj)
+		case "nodes":
+			out.Values[i] = ec._SearchResultConnection_nodes(ctx, field, obj)
+		case "totalCount":
+			out.Values[i] = ec._SearchResultConnection_totalCount(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch()
+	if invalids > 0 {
+		return graphql.Null
+	}
+	return out
+}
+
+var searchResultEdgeImplementors = []string{"SearchResultEdge"}
+
+func (ec *executionContext) _SearchResultEdge(ctx context.Context, sel ast.SelectionSet, obj *model.SearchResultEdge) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, searchResultEdgeImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	var invalids uint32
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("SearchResultEdge")
+		case "node":
+			out.Values[i] = ec._SearchResultEdge_node(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		case "cursor":
+			out.Values[i] = ec._SearchResultEdge_cursor(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -3615,7 +3998,7 @@ func (ec *executionContext) _TodoEdge(ctx context.Context, sel ast.SelectionSet,
 	return out
 }
 
-var userImplementors = []string{"User", "Node"}
+var userImplementors = []string{"User", "Node", "SearchResult"}
 
 func (ec *executionContext) _User(ctx context.Context, sel ast.SelectionSet, obj *model.User) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, userImplementors)
@@ -4029,6 +4412,20 @@ func (ec *executionContext) marshalNNode2githubᚗcomᚋuniojiᚋuniojiᚑapiᚋ
 	return ec._Node(ctx, sel, v)
 }
 
+func (ec *executionContext) marshalNNodeConnection2githubᚗcomᚋuniojiᚋuniojiᚑapiᚋgraphᚋmodelᚐNodeConnection(ctx context.Context, sel ast.SelectionSet, v model.NodeConnection) graphql.Marshaler {
+	return ec._NodeConnection(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNNodeConnection2ᚖgithubᚗcomᚋuniojiᚋuniojiᚑapiᚋgraphᚋmodelᚐNodeConnection(ctx context.Context, sel ast.SelectionSet, v *model.NodeConnection) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	return ec._NodeConnection(ctx, sel, v)
+}
+
 func (ec *executionContext) marshalNPageInfo2githubᚗcomᚋuniojiᚋuniojiᚑapiᚋgraphᚋmodelᚐPageInfo(ctx context.Context, sel ast.SelectionSet, v model.PageInfo) graphql.Marshaler {
 	return ec._PageInfo(ctx, sel, &v)
 }
@@ -4053,41 +4450,18 @@ func (ec *executionContext) marshalNSearchResult2githubᚗcomᚋuniojiᚋunioji�
 	return ec._SearchResult(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNSearchResult2ᚕgithubᚗcomᚋuniojiᚋuniojiᚑapiᚋgraphᚋmodelᚐSearchResultᚄ(ctx context.Context, sel ast.SelectionSet, v []model.SearchResult) graphql.Marshaler {
-	ret := make(graphql.Array, len(v))
-	var wg sync.WaitGroup
-	isLen1 := len(v) == 1
-	if !isLen1 {
-		wg.Add(len(v))
-	}
-	for i := range v {
-		i := i
-		fc := &graphql.FieldContext{
-			Index:  &i,
-			Result: &v[i],
-		}
-		ctx := graphql.WithFieldContext(ctx, fc)
-		f := func(i int) {
-			defer func() {
-				if r := recover(); r != nil {
-					ec.Error(ctx, ec.Recover(ctx, r))
-					ret = nil
-				}
-			}()
-			if !isLen1 {
-				defer wg.Done()
-			}
-			ret[i] = ec.marshalNSearchResult2githubᚗcomᚋuniojiᚋuniojiᚑapiᚋgraphᚋmodelᚐSearchResult(ctx, sel, v[i])
-		}
-		if isLen1 {
-			f(i)
-		} else {
-			go f(i)
-		}
+func (ec *executionContext) marshalNSearchResultConnection2githubᚗcomᚋuniojiᚋuniojiᚑapiᚋgraphᚋmodelᚐSearchResultConnection(ctx context.Context, sel ast.SelectionSet, v model.SearchResultConnection) graphql.Marshaler {
+	return ec._SearchResultConnection(ctx, sel, &v)
+}
 
+func (ec *executionContext) marshalNSearchResultConnection2ᚖgithubᚗcomᚋuniojiᚋuniojiᚑapiᚋgraphᚋmodelᚐSearchResultConnection(ctx context.Context, sel ast.SelectionSet, v *model.SearchResultConnection) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
 	}
-	wg.Wait()
-	return ret
+	return ec._SearchResultConnection(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalNString2string(ctx context.Context, v interface{}) (string, error) {
@@ -4576,17 +4950,6 @@ func (ec *executionContext) marshalONode2ᚕgithubᚗcomᚋuniojiᚋuniojiᚑapi
 	return ret
 }
 
-func (ec *executionContext) marshalONodeConnection2githubᚗcomᚋuniojiᚋuniojiᚑapiᚋgraphᚋmodelᚐNodeConnection(ctx context.Context, sel ast.SelectionSet, v model.NodeConnection) graphql.Marshaler {
-	return ec._NodeConnection(ctx, sel, &v)
-}
-
-func (ec *executionContext) marshalONodeConnection2ᚖgithubᚗcomᚋuniojiᚋuniojiᚑapiᚋgraphᚋmodelᚐNodeConnection(ctx context.Context, sel ast.SelectionSet, v *model.NodeConnection) graphql.Marshaler {
-	if v == nil {
-		return graphql.Null
-	}
-	return ec._NodeConnection(ctx, sel, v)
-}
-
 func (ec *executionContext) marshalONodeEdge2githubᚗcomᚋuniojiᚋuniojiᚑapiᚋgraphᚋmodelᚐNodeEdge(ctx context.Context, sel ast.SelectionSet, v model.NodeEdge) graphql.Marshaler {
 	return ec._NodeEdge(ctx, sel, &v)
 }
@@ -4636,6 +4999,104 @@ func (ec *executionContext) marshalONodeEdge2ᚖgithubᚗcomᚋuniojiᚋunioji�
 		return graphql.Null
 	}
 	return ec._NodeEdge(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalOSearchResult2githubᚗcomᚋuniojiᚋuniojiᚑapiᚋgraphᚋmodelᚐSearchResult(ctx context.Context, sel ast.SelectionSet, v model.SearchResult) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._SearchResult(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalOSearchResult2ᚕgithubᚗcomᚋuniojiᚋuniojiᚑapiᚋgraphᚋmodelᚐSearchResult(ctx context.Context, sel ast.SelectionSet, v []model.SearchResult) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	ret := make(graphql.Array, len(v))
+	var wg sync.WaitGroup
+	isLen1 := len(v) == 1
+	if !isLen1 {
+		wg.Add(len(v))
+	}
+	for i := range v {
+		i := i
+		fc := &graphql.FieldContext{
+			Index:  &i,
+			Result: &v[i],
+		}
+		ctx := graphql.WithFieldContext(ctx, fc)
+		f := func(i int) {
+			defer func() {
+				if r := recover(); r != nil {
+					ec.Error(ctx, ec.Recover(ctx, r))
+					ret = nil
+				}
+			}()
+			if !isLen1 {
+				defer wg.Done()
+			}
+			ret[i] = ec.marshalOSearchResult2githubᚗcomᚋuniojiᚋuniojiᚑapiᚋgraphᚋmodelᚐSearchResult(ctx, sel, v[i])
+		}
+		if isLen1 {
+			f(i)
+		} else {
+			go f(i)
+		}
+
+	}
+	wg.Wait()
+	return ret
+}
+
+func (ec *executionContext) marshalOSearchResultEdge2githubᚗcomᚋuniojiᚋuniojiᚑapiᚋgraphᚋmodelᚐSearchResultEdge(ctx context.Context, sel ast.SelectionSet, v model.SearchResultEdge) graphql.Marshaler {
+	return ec._SearchResultEdge(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalOSearchResultEdge2ᚕᚖgithubᚗcomᚋuniojiᚋuniojiᚑapiᚋgraphᚋmodelᚐSearchResultEdge(ctx context.Context, sel ast.SelectionSet, v []*model.SearchResultEdge) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	ret := make(graphql.Array, len(v))
+	var wg sync.WaitGroup
+	isLen1 := len(v) == 1
+	if !isLen1 {
+		wg.Add(len(v))
+	}
+	for i := range v {
+		i := i
+		fc := &graphql.FieldContext{
+			Index:  &i,
+			Result: &v[i],
+		}
+		ctx := graphql.WithFieldContext(ctx, fc)
+		f := func(i int) {
+			defer func() {
+				if r := recover(); r != nil {
+					ec.Error(ctx, ec.Recover(ctx, r))
+					ret = nil
+				}
+			}()
+			if !isLen1 {
+				defer wg.Done()
+			}
+			ret[i] = ec.marshalOSearchResultEdge2ᚖgithubᚗcomᚋuniojiᚋuniojiᚑapiᚋgraphᚋmodelᚐSearchResultEdge(ctx, sel, v[i])
+		}
+		if isLen1 {
+			f(i)
+		} else {
+			go f(i)
+		}
+
+	}
+	wg.Wait()
+	return ret
+}
+
+func (ec *executionContext) marshalOSearchResultEdge2ᚖgithubᚗcomᚋuniojiᚋuniojiᚑapiᚋgraphᚋmodelᚐSearchResultEdge(ctx context.Context, sel ast.SelectionSet, v *model.SearchResultEdge) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._SearchResultEdge(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalOString2string(ctx context.Context, v interface{}) (string, error) {

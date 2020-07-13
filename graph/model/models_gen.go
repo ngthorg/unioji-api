@@ -35,6 +35,18 @@ type PageInfo struct {
 	EndCursor       *string `json:"endCursor"`
 }
 
+type SearchResultConnection struct {
+	PageInfo   *PageInfo           `json:"pageInfo"`
+	Edges      []*SearchResultEdge `json:"edges"`
+	Nodes      []SearchResult      `json:"nodes"`
+	TotalCount int                 `json:"totalCount"`
+}
+
+type SearchResultEdge struct {
+	Node   SearchResult `json:"node"`
+	Cursor string       `json:"cursor"`
+}
+
 type TodoConnection struct {
 	PageInfo   *PageInfo   `json:"pageInfo"`
 	Edges      []*TodoEdge `json:"edges"`

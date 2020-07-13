@@ -76,8 +76,14 @@ type Query {
     first: Int
     last: Int
     ids: [ID!]!
-  ): NodeConnection
-  search(text: String!): [SearchResult!]!
+  ): NodeConnection!
+  search(
+    after: String
+    before: String
+    first: Int
+    last: Int
+    text: String!
+  ): SearchResultConnection!
   users: [User!]!
   todos: [Todo!]!
   todosConnection(
@@ -98,4 +104,16 @@ type Mutation {
   createTodo(input: NewTodo!): Todo!
 }
 
-union SearchResult = Todo
+union SearchResult = Todo | User
+
+type SearchResultEdge {
+  node: SearchResult!
+  cursor: String!
+}
+
+type SearchResultConnection {
+  pageInfo: PageInfo!
+  edges: [SearchResultEdge]
+  nodes: [SearchResult]
+  totalCount: Int!
+}

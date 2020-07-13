@@ -12,3 +12,6 @@ type User struct {
 
 // IsNode is a method in User
 func (User) IsNode() {}
+
+// IsSearchResult is a method in User
+func (User) IsSearchResult() {}
